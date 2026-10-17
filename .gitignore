@@ -1,0 +1,18 @@
+# Data & Checkpoints
+data/raw/*
+data/processed/*
+results/checkpoints/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!results/checkpoints/.gitkeep
+
+# Python & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
