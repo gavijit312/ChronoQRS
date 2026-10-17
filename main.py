@@ -3,9 +3,11 @@ from pydantic import BaseModel
 import torch
 import numpy as np
 import wfdb
+import urllib.request
+from pathlib import Path
 from scipy.signal import resample_poly
 
-from src.config import CHECKPOINTS_DIR, CLASSES, IDX_TO_CLASS, WIN_BEFORE, WIN_AFTER, AAMI_MAP, CLASS_TO_IDX
+from src.config import CHECKPOINTS_DIR, DATA_RAW_DIR, CLASSES, IDX_TO_CLASS, WIN_BEFORE, WIN_AFTER, AAMI_MAP, CLASS_TO_IDX
 from src.dataset import bandpass_filter
 from src.model import ChronoQRSNet
 
@@ -15,7 +17,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Global model variable
 model = None
 device = torch.device("cpu")
 
@@ -35,7 +36,26 @@ def load_model():
 
 class PredictionRequest(BaseModel):
     record_id: str = "200"
-    database: str = "mitdb"  # "mitdb" (360Hz) or "incartdb" (257Hz)
+    database: str = "mitdb"
+
+
+def ensure_local_record(record_id: str, database: str):
+    """Ensures record files exist locally (downloads from S3 mirror if missing)."""
+    DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # S3 mirror base depending on database
+    s3_base = "https://physionet-open.s3.amazonaws.com/mitdb/1.0.0" if database == "mitdb" else "https://physionet-open.s3.amazonaws.com/incartdb/1.0.0"
+    
+    for ext in ["hea", "dat", "atr"]:
+        dest = DATA_RAW_DIR / f"{record_id}.{ext}"
+        if dest.exists() and dest.stat().st_size > 0:
+            continue
+        url = f"{s3_base}/{record_id}.{ext}"
+        try:
+            print(f"[INFO] Downloading {record_id}.{ext} from AWS S3 mirror...")
+            urllib.request.urlretrieve(url, dest)
+        except Exception as e:
+            print(f"[WARNING] S3 download failed for {ext}: {e}")
 
 
 @app.get("/")
@@ -51,28 +71,26 @@ def read_root():
 @app.post("/predict")
 def predict_record(req: PredictionRequest):
     try:
-        # Load record via wfdb
-        local_path = str(CHECKPOINTS_DIR.parent.parent / "data" / "raw" / req.record_id)
+        # Ensure files are downloaded locally via fast S3 mirror
+        ensure_local_record(req.record_id, req.database)
         
-        # Pull from PhysioNet / S3 if not cached
-        rec = wfdb.rdrecord(req.record_id, pn_dir=req.database)
-        ann = wfdb.rdann(req.record_id, "atr", pn_dir=req.database)
+        local_path = str(DATA_RAW_DIR / req.record_id)
+        rec = wfdb.rdrecord(local_path)
+        ann = wfdb.rdann(local_path, "atr")
         
         raw_sig = rec.p_signal[:, 0]
         fs = float(rec.fs)
 
-        # Handle sampling rate adjustment if INCART (257Hz -> 360Hz)
         if req.database == "incartdb" and fs != 360.0:
             raw_sig = resample_poly(raw_sig, up=360, down=257)
             fs = 360.0
 
         filtered_sig = bandpass_filter(raw_sig)
 
-        # Extract beats
         valid_peaks, valid_labels = [], []
         for sample, symbol in zip(ann.sample, ann.symbol):
             if symbol in AAMI_MAP:
-                new_sample = int(round(sample * (360.0 / rec.fs))) if req.database == "incartdb" else sample
+                new_sample = int(round(sample * (360.0 / fs))) if req.database == "incartdb" else sample
                 valid_peaks.append(new_sample)
                 valid_labels.append(AAMI_MAP[symbol])
 
@@ -108,12 +126,10 @@ def predict_record(req: PredictionRequest):
         X_w = torch.tensor(np.array(waveforms, dtype=np.float32)).unsqueeze(1).to(device)
         X_r = torch.tensor(np.array(rr_features, dtype=np.float32)).to(device)
 
-        # Run model inference
         with torch.no_grad():
             logits = model(X_w, X_r)
             preds = torch.argmax(logits, dim=1).cpu().numpy()
 
-        # Tally predictions
         class_counts = {c: int(np.sum(preds == idx)) for idx, c in enumerate(CLASSES)}
         total_beats = int(len(preds))
 
