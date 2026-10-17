@@ -1,40 +1,166 @@
-# ChronoQRS: Inter-Patient ECG Arrhythmia Classification
+# 🫀 ChronoQRS: Inter-Patient ECG Arrhythmia Classification System
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8%25%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<div align="center">
 
-**ChronoQRS** is a deep learning pipeline for automated heartbeat arrhythmia classification on the standard **MIT-BIH Arrhythmia Database**. Unlike typical academic or tutorial notebooks that leak patient morphology across random splits to claim 99% accuracy, ChronoQRS enforces a strict **zero-leakage inter-patient split** (*de Chazal et al.*), ensuring evaluation on completely unseen clinical cohorts.
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red?logo=pytorch&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-005571?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
+
+## 🌟 Executive Summary
+
+Automated ECG analysis often suffers from **over-optimistic generalization** due to random intra-patient splitting (where heartbeats from the same patient exist in both training and test sets). **ChronoQRS** solves this by implementing strict **inter-patient partitioning** across diverse clinical databases (MIT-BIH and St. Petersburg INCART).
+
+The system couples a custom dual-branch neural network (`ChronoQRSNet`) with an asynchronous **FastAPI** backend optimized via AWS S3-mirrored local caching, wrapped entirely inside an isolated **Docker** container for reproducible production deployment.
 
 ---
 
-## 🔬 Key Architectural Differentiators
-
-1. **Zero-Leakage Inter-Patient Split:** Separates the 44 non-paced records into two disjoint cohorts—22 patients for training (`DS1`) and 22 entirely different patients for testing (`DS2`). No patient data ever crosses between training and evaluation.
-2. **Dual-Branch Spatio-Temporal Fusion:**
-   - **Morphology Branch (`wave_branch`):** A multi-scale 1D Convolutional Neural Network processing 252-sample beat windows (0.25s pre-peak, 0.45s post-peak) filtered with a zero-phase $0.5\text{--}40\text{ Hz}$ Butterworth bandpass.
-   - **Chrono Branch (`rr_branch`):** A dedicated dense projection modeling local and raw RR-interval dynamics (`pre_RR`, `post_RR`, and patient-rate normalized ratios) to prevent timing signals from being washed out by waveform convolutions.
-3. **Class-Weighted Optimization:** Employs smoothed square-root inverse frequency loss weighting to handle severe class imbalance without destabilizing precision on normal beats.
-
----
-
-## 📂 Repository Structure
+## 🏗️ System Architecture
 
 ```text
-chrono-qrs/
-├── data/                    # Raw PhysioNet records & processed .npz caches (ignored by git)
-├── notebooks/               # Signal exploration & filtering validation
-├── results/
-│   ├── checkpoints/         # Saved PyTorch model weights (best_chrono_qrs.pt)
-│   ├── figures/             # Confusion matrices and color-coded ECG strips
-│   └── metrics_table.md     # Auto-generated performance reports
+                                  [ PhysioNet AWS S3 Mirror ]
+                                               │
+                                               ▼
+[ Client / UI ] ──(POST /predict)──> [ FastAPI Backend (Uvicorn) ]
+                                               │
+                                               ├─> wfdb (Signal & Annotation Parsing)
+                                               ├─> SciPy (Bandpass Filtering & Resampling)
+                                               │
+                                               ▼
+                              [ ChronoQRSNet (Dual-Branch PyTorch) ]
+                              ├── Branch 1: 1D CNN (Morphological Waveform)
+                              └── Branch 2: Dense MLP (Dynamic RR-Intervals)
+                                               │
+                                               ▼
+                                  [ AAMI EC57 Class Output ]
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+ChronoQRS/
 ├── src/
-│   ├── config.py            # AAMI mappings, filter constants, patient splits
-│   ├── dataset.py           # S3 parallel downloader, filtering, windowing, & RR extraction
-│   ├── baseline.py          # Random Forest baseline on RR-interval dynamics
-│   ├── model.py             # ChronoQRSNet dual-branch architecture
-│   ├── train.py             # Class-weighted training loop & validation checkpointing
-│   ├── evaluate.py          # Unseen-patient DS2 evaluation & confusion matrix rendering
-│   └── visualize.py         # Clinical ECG strip renderer color-coded by prediction
-├── requirements.txt
-└── README.md
+│   ├── __init__.py
+│   ├── config.py         # Global hyperparameters, paths, and ANSI/AAMI mappings
+│   ├── dataset.py        # Signal preprocessing, bandpass filtering, and windowing
+│   ├── model.py          # ChronoQRSNet PyTorch dual-branch architecture
+│   └── evaluate.py       # Clinical evaluation metrics & confusion matrix generation
+├── results/
+│   └── checkpoints/      # Trained model weights (best_chrono_qrs.pt)
+├── data/                 # Local raw cache directory (auto-populated via S3 mirror)
+├── Dockerfile            # Container definition for Python/PyTorch/FastAPI
+├── .dockerignore         # Excluded build artifacts & venv files
+├── main.py               # FastAPI application entrypoint & S3 fast-download handler
+└── requirements.txt      # Pinned production dependencies
+```
+
+---
+
+## 📊 Clinical Taxonomy & Performance
+
+Model predictions conform to the **ANSI/AAMI EC57** standard, mapping raw arrhythmia annotations into five clinically distinct heartbeat categories:
+
+| Class Code | Description | Clinical Significance |
+| :---: | :--- | :--- |
+| **N** | Normal / Bundle Branch Block | Baseline sinus rhythm & normal conduction variants |
+| **S** | Supraventricular Ectopic | Premature atrial contractions (PACs) / nodal beats |
+| **V** | Ventricular Ectopic | Premature ventricular contractions (PVCs) — high risk |
+| **F** | Fusion Beats | Combination of normal and ventricular beats |
+| **Q** | Unknown / Unclassifiable | Unrecognized morphology / paced beats |
+
+---
+
+## ⚙️ Local Installation & Development
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/gavijit312/ChronoQRS.git
+cd ChronoQRS
+```
+
+### 2. Set Up Virtual Environment
+```bash
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. Run the Development Server
+```bash
+uvicorn main:app --reload
+```
+
+Navigate to **`http://127.0.0.1:8000/docs`** to explore the interactive Swagger UI documentation.
+
+---
+
+## 🐳 Docker Production Deployment
+
+Containerize and execute the backend in a fully isolated environment using Docker:
+
+### 1. Build the Docker Image
+```bash
+docker build -t chrono-qrs-api .
+```
+
+### 2. Run the Container (Detached Mode)
+```bash
+docker run -d -p 8000:8000 --name chrono-container chrono-qrs-api
+```
+
+### 3. Stop or Clean Up Container
+```bash
+docker stop chrono-container
+docker rm chrono-container
+```
+
+---
+
+## 🔌 API Reference & Usage
+
+### Endpoint: `POST /predict`
+
+Evaluates an entire ECG record by streaming/caching records from the PhysioNet S3 mirror, filtering signals, extracting windows, and running inference through `ChronoQRSNet`.
+
+**Request Body:**
+```json
+{
+  "record_id": "200",
+  "database": "mitdb"
+}
+```
+
+**Response Payload:**
+```json
+{
+  "record_id": "200",
+  "database": "mitdb",
+  "total_beats_evaluated": 2601,
+  "prediction_counts": {
+    "N": 1942,
+    "S": 0,
+    "V": 659,
+    "F": 0,
+    "Q": 0
+  }
+}
+```
+
+---
+
+## 🛡️ License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
