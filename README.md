@@ -98,10 +98,38 @@ Once running, access the interactive Swagger API documentation in your browser a
 
 ---
 
-## 🔌 API Endpoints Overview
+## 🔌 API Endpoints & Testing
 
 - `GET /`: Health check and system status.
 - `POST /predict`: Accepts ECG signal arrays/features and returns real-time arrhythmia classification probabilities and triage decisions.
+
+### **API Input Format & Example**
+The prediction endpoint expects a JSON payload containing your raw waveform signals and RR interval features:
+
+```json
+{
+  "waveform_signal": [0.02, 0.05, 0.12, 0.08, -0.01, -0.25, 0.45, 0.10, 0.03, 0.01],
+  "rr_intervals": [0.82, 0.79, 0.81, 0.84]
+}
+```
+
+### **Python Test Client Script**
+You can test the running server programmatically using `requests`:
+
+```python
+import requests
+
+url = "http://127.0.0.1:8000/predict"
+
+payload = {
+    "waveform_signal": [0.02, 0.05, 0.12, 0.08, -0.01, -0.25, 0.45, 0.10, 0.03, 0.01],
+    "rr_intervals": [0.82, 0.79, 0.81, 0.84]
+}
+
+response = requests.post(url, json=payload)
+print("Status Code:", response.status_code)
+print("Response JSON:", response.json())
+```
 
 ---
 
