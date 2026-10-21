@@ -40,5 +40,34 @@ If you want to run the backend locally:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/gavijit312/ChronoQRS.git](https://github.com/gavijit312/ChronoQRS.git)
+   git clone https://github.com/gavijit312/ChronoQRS.git
    cd ChronoQRS
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the FastAPI server:**
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+4. **Access local docs:**
+   Open your browser at `http://127.0.0.1:8000/docs`
+
+---
+
+## 📊 API Usage Example
+
+You can query the live API using Python:
+
+```python
+import requests
+
+response = requests.post(
+    "https://chronoqrs.onrender.com/predict",
+    json={"record_id": "200", "database": "mitdb"}
+)
+print(response.json())
