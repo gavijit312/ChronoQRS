@@ -12,14 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy the requirements file first to leverage Docker layer caching
 COPY requirements.txt .
 
-# Install Python dependencies (ensuring PyTorch installs the lightweight CPU version)
+# Install Python dependencies cleanly, forcing CPU PyTorch and suppressing root warnings
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 # Copy the rest of your application code and model checkpoints into the container
 COPY . .
 
-# Expose the default port (Render uses dynamic ports, but 10000 is standard fallback)
+# Expose the standard fallback port for Render
 EXPOSE 10000
 
 # Run FastAPI using Uvicorn, binding to 0.0.0.0 and using Render's dynamic $PORT variable
