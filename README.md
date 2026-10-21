@@ -1,138 +1,44 @@
-# 🫀 ChronoQRS: ECG Arrhythmia Classification & Triage Pipeline
+# ⚡ ChronoQRS: Inter-Patient ECG Arrhythmia Classification API
 
+[![API Status](https://img.shields.io/badge/API-Live-brightgreen)](https://chronoqrs.onrender.com)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c.svg)](https://pytorch.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)](https://www.docker.com/)
-[![Accuracy](https://img.shields.io/badge/Accuracy-99.89%25-success.svg)](https://github.com/gavijit312/ChronoQRS)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-orange)](https://pytorch.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Microservice-teal)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-blue)](https://www.docker.com/)
+
+**ChronoQRS** is an enterprise-grade deep learning microservice designed for automated inter-patient electrocardiogram (ECG) arrhythmia classification. Built using a dual-branch neural architecture and deployed via a cloud-hosted FastAPI backend, it processes morphological waveforms and RR-interval dynamics to classify heartbeats in accordance with AAMI clinical standards.
 
 ---
 
-## 🎯 Model Performance & Metrics
+## 🚀 Live Production Endpoints
 
-| Metric | Score | Description |
-| :--- | :--- | :--- |
-| **Overall Accuracy** | **99.89%** | Evaluated on rigorous inter-patient testing partitions to prevent data leakage and ensure real-world clinical reliability. |
-| **Architecture** | **Dual-Branch** | Jointly processes morphological waveforms and RR-interval dynamics. |
+* **API Status & Health Check:** [https://chronoqrs.onrender.com](https://chronoqrs.onrender.com)
+* **Interactive Swagger Documentation:** [https://chronoqrs.onrender.com/docs](https://chronoqrs.onrender.com/docs)
 
 ---
 
-**ChronoQRS** is an enterprise-grade, high-performance deep learning system designed for automated electrocardiogram (ECG) arrhythmia classification and clinical triage. Built with a dual-branch neural architecture, the system simultaneously processes raw morphological waveforms and inter-beat (RR) intervals to achieve near-perfect diagnostic accuracy while maintaining low-latency inference through a containerized FastAPI backend.
+## 🧠 System Architecture & Methodology
 
----
-
-## 🚀 Key Features
-
-- **Dual-Branch Deep Learning Architecture**: Combines convolutional feature extraction for heartbeat morphology with temporal modeling for RR-interval dynamics.
-- **Inter-Patient Evaluation Split**: Validated using rigorous inter-patient testing partitions achieving **99.89% accuracy** to ensure clinical generalizability and prevent patient data leakage.
-- **High-Performance Production API**: Powered by FastAPI with automated Swagger documentation and low-overhead request validation.
-- **Cloud-Ready Caching**: Integrated with fast S3 mirror caching for high-throughput diagnostic retrieval.
-- **Fully Containerized**: Packaged into a reproducible, lightweight Docker container for frictionless cross-platform deployment.
+1. **Signal Processing Pipeline:** Utilizes `wfdb` and SciPy for physiological signal parsing, zero-phase Butterworth bandpass filtering, and dynamic resampling.
+2. **Feature Engineering:** Combines raw windowed heartbeat morphology with precise local RR-interval feature ratios (pre-RR, post-RR, and local averages).
+3. **Dual-Branch Deep Learning Model (`ChronoQRSNet`):** Built with PyTorch to process spatial waveform features and temporal rhythm dynamics simultaneously.
+4. **Production Microservice:** Built with **FastAPI**, containerized using **Docker**, and deployed on cloud infrastructure to serve real-time cardiac inference.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Deep Learning Framework**: PyTorch, torchvision, torchaudio
-- **Numerical & Scientific Computing**: NumPy, SciPy, Scikit-Learn
-- **API Framework**: FastAPI, Uvicorn
-- **Containerization**: Docker
-- **Version Control & Management**: Git, Python venv
+* **Deep Learning:** PyTorch, NumPy, SciPy, WFDB
+* **Backend & API:** FastAPI, Uvicorn, Pydantic
+* **Deployment & DevOps:** Docker, Render Cloud Infrastructure, Git/GitHub
 
 ---
 
-## 📦 Model Weights & Checkpoints
+## 💻 Local Quickstart
 
-Due to GitHub's file size limits for standard tracking, the pre-trained model weights (`best_chrono_qrs.pt`) require proper placement before running local inference or Docker builds.
+If you want to run the backend locally:
 
-To set up your weights:
-1. Ensure your trained model checkpoint file is placed in the project directory structure at:
-   ```text
-   results/checkpoints/best_chrono_qrs.pt
-   ```
-
----
-
-## ⚙️ Getting Started & Installation
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/gavijit312/ChronoQRS.git
-cd ChronoQRS
-```
-
-### 2. Set Up a Virtual Environment (Optional for Local Dev)
-```bash
-python -m venv venv
-# On Windows:
-venv\Scripts\Activate
-# On macOS/Linux:
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
----
-
-## 🐳 Docker Deployment
-
-To run ChronoQRS in an isolated production container:
-
-### 1. Build the Docker Image
-```bash
-docker build -t chrono-qrs-api .
-```
-
-### 2. Run the Container
-```bash
-docker run -d -p 8000:8000 --name chrono-container chrono-qrs-api
-```
-
-Once running, access the interactive Swagger API documentation in your browser at:
-👉 **`http://127.0.0.1:8000/docs`**
-
----
-
-## 🔌 API Endpoints & Testing
-
-- `GET /`: Health check and system status.
-- `POST /predict`: Accepts ECG signal arrays/features and returns real-time arrhythmia classification probabilities and triage decisions.
-
-### **API Input Format & Example**
-The prediction endpoint expects a JSON payload containing your raw waveform signals and RR interval features:
-
-```json
-{
-  "waveform_signal": [0.02, 0.05, 0.12, 0.08, -0.01, -0.25, 0.45, 0.10, 0.03, 0.01],
-  "rr_intervals": [0.82, 0.79, 0.81, 0.84]
-}
-```
-
-### **Python Test Client Script**
-You can test the running server programmatically using `requests`:
-
-```python
-import requests
-
-url = "http://127.0.0.1:8000/predict"
-
-payload = {
-    "waveform_signal": [0.02, 0.05, 0.12, 0.08, -0.01, -0.25, 0.45, 0.10, 0.03, 0.01],
-    "rr_intervals": [0.82, 0.79, 0.81, 0.84]
-}
-
-response = requests.post(url, json=payload)
-print("Status Code:", response.status_code)
-print("Response JSON:", response.json())
-```
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/gavijit312/ChronoQRS.git](https://github.com/gavijit312/ChronoQRS.git)
+   cd ChronoQRS
