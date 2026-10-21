@@ -34,6 +34,19 @@ def load_model():
     model.eval()
     print("[INFO] ChronoQRSNet loaded successfully into FastAPI backend!")
 
+    # Pre-download default test record (record 200) on startup to prevent request timeouts
+    try:
+        DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+        s3_base = "https://physionet-open.s3.amazonaws.com/mitdb/1.0.0"
+        for ext in ["hea", "dat", "atr"]:
+            dest = DATA_RAW_DIR / f"200.{ext}"
+            if not dest.exists() or dest.stat().st_size == 0:
+                print(f"[INFO] Pre-downloading default test record 200.{ext}...")
+                urllib.request.urlretrieve(f"{s3_base}/200.{ext}", dest)
+        print("[INFO] Default test record 200 ready locally!")
+    except Exception as e:
+        print(f"[WARNING] Could not pre-download record on startup: {e}")
+
 
 class PredictionRequest(BaseModel):
     record_id: str = "200"
@@ -44,7 +57,6 @@ def ensure_local_record(record_id: str, database: str):
     """Ensures record files exist locally (downloads from S3 mirror if missing)."""
     DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
     
-    # S3 mirror base depending on database
     s3_base = "https://physionet-open.s3.amazonaws.com/mitdb/1.0.0" if database == "mitdb" else "https://physionet-open.s3.amazonaws.com/incartdb/1.0.0"
     
     for ext in ["hea", "dat", "atr"]:
