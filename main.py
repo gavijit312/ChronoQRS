@@ -6,6 +6,7 @@ import wfdb
 import urllib.request
 from pathlib import Path
 from scipy.signal import resample_poly
+import traceback
 
 from src.config import CHECKPOINTS_DIR, DATA_RAW_DIR, CLASSES, IDX_TO_CLASS, WIN_BEFORE, WIN_AFTER, AAMI_MAP, CLASS_TO_IDX
 from src.dataset import bandpass_filter
@@ -141,4 +142,6 @@ def predict_record(req: PredictionRequest):
         }
 
     except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"[ERROR TRACEBACK]:\n{error_trace}")
         raise HTTPException(status_code=500, detail=str(e))
